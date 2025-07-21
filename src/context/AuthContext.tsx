@@ -1,16 +1,16 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User } from '@/types';
-import { authAPI } from '@/services/api';
-import { toast } from '@/hooks/use-toast';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { authAPI, userAPI } from '@/services/api';
+import type { User, RegisterFormData, ProfileFormData, PasswordChangeFormData } from '@/types';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, role: 'student' | 'teacher') => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  register: (userData: RegisterFormData) => Promise<User>;
   logout: () => Promise<void>;
-  updateUser: (userData: Partial<User>) => void;
-  resetPassword: (email: string) => Promise<void>;
+  updateProfile: (profileData: ProfileFormData) => Promise<User>;
+  changePassword: (passwordData: PasswordChangeFormData) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,57 +23,38 @@ export const useAuth = () => {
   return context;
 };
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
+  // Check for existing auth on mount
   useEffect(() => {
-    // Check if user is logged in on app start
-    checkAuthStatus();
+    const checkAuth = async () => {
+      const storedUser = authAPI.getCurrentUser();
+      if (storedUser) {
+        setUser(storedUser);
+      }
+      setLoading(false);
+    };
+
+    checkAuth();
   }, []);
 
-  const checkAuthStatus = async () => {
+  const login = async (email: string, password: string): Promise<User> => {
+    setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        const response = await authAPI.verifyToken();
-        if (response.success) {
-          setUser(response.data);
-        } else {
-          localStorage.removeItem('token');
-        }
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      localStorage.removeItem('token');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const login = async (email: string, password: string) => {
-    try {
-      setLoading(true);
-      const response = await authAPI.login({ email, password });
-      
-      if (response.success) {
-        localStorage.setItem('token', response.data.token);
-        setUser(response.data.user);
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${response.data.user.name}!`,
-        });
-      } else {
-        throw new Error(response.error || 'Login failed');
-      }
+      const userData = await authAPI.login(email, password);
+      setUser(userData);
+      toast({
+        title: "Login Successful",
+        description: `Welcome back, ${userData.name}!`,
+      });
+      return userData;
     } catch (error: any) {
       toast({
         title: "Login Failed",
-        description: error.message || 'Please check your credentials and try again.',
+        description: error.response?.data?.message || error.message || 'Login failed',
         variant: "destructive",
       });
       throw error;
@@ -82,25 +63,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const register = async (name: string, email: string, password: string, role: 'student' | 'teacher') => {
+  const register = async (userData: RegisterFormData): Promise<User> => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const response = await authAPI.register({ name, email, password, confirmPassword: password, role });
-      
-      if (response.success) {
-        localStorage.setItem('token', response.data.token);
-        setUser(response.data.user);
-        toast({
-          title: "Registration Successful",
-          description: `Welcome to EduConnect, ${response.data.user.name}!`,
-        });
-      } else {
-        throw new Error(response.error || 'Registration failed');
-      }
+      const newUser = await authAPI.register(userData);
+      setUser(newUser);
+      toast({
+        title: "Registration Successful",
+        description: `Welcome to EduConnect, ${newUser.name}!`,
+      });
+      return newUser;
     } catch (error: any) {
       toast({
         title: "Registration Failed",
-        description: error.message || 'Please try again with different details.',
+        description: error.response?.data?.message || error.message || 'Registration failed',
         variant: "destructive",
       });
       throw error;
@@ -109,44 +85,45 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = async () => {
+  const logout = async (): Promise<void> => {
+    setLoading(true);
     try {
       await authAPI.logout();
-      localStorage.removeItem('token');
       setUser(null);
       toast({
         title: "Logged Out",
         description: "You have been successfully logged out.",
       });
-    } catch (error) {
-      // Even if API call fails, remove local token
-      localStorage.removeItem('token');
-      setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const updateUser = (userData: Partial<User>) => {
-    setUser(prev => prev ? { ...prev, ...userData } : null);
+  const updateProfile = async (profileData: ProfileFormData): Promise<User> => {
+    if (!user) throw new Error('No user logged in');
+    
+    setLoading(true);
+    try {
+      const updatedUser = await userAPI.updateProfile(profileData);
+      setUser(updatedUser);
+      // Update stored user data
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      return updatedUser;
+    } catch (error) {
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const resetPassword = async (email: string) => {
+  const changePassword = async (passwordData: PasswordChangeFormData): Promise<void> => {
+    setLoading(true);
     try {
-      const response = await authAPI.resetPassword(email);
-      if (response.success) {
-        toast({
-          title: "Password Reset Email Sent",
-          description: "Check your email for password reset instructions.",
-        });
-      } else {
-        throw new Error(response.error || 'Password reset failed');
-      }
-    } catch (error: any) {
-      toast({
-        title: "Password Reset Failed",
-        description: error.message || 'Please try again.',
-        variant: "destructive",
-      });
+      await userAPI.changePassword(passwordData);
+    } catch (error) {
       throw error;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -156,13 +133,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     register,
     logout,
-    updateUser,
-    resetPassword,
+    updateProfile,
+    changePassword,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

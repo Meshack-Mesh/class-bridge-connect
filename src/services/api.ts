@@ -1,4 +1,5 @@
-// API service for MERN backend integration
+// API service for EduConnect MERN backend
+import axios from 'axios';
 import {
   User, Class, Assignment, Submission, Announcement, Message, Notification,
   ApiResponse, PaginatedResponse, LoginFormData, RegisterFormData,
@@ -7,345 +8,235 @@ import {
 } from '@/types';
 
 // Base API configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:5000/api';
 
+// Create axios instance
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-class ApiService {
-  async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
-    const token = localStorage.getItem('token');
-    
-    const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
-        ...options.headers,
-      },
-      ...options,
-    };
-
-    try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'API request failed');
-      }
-
-      return data;
-    } catch (error: any) {
-      throw new Error(error.message || 'Network error');
-    }
+// Request interceptor to add auth token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
+  return config;
+});
 
-  async upload(endpoint: string, formData: FormData): Promise<ApiResponse<any>> {
-    const token = localStorage.getItem('token');
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Upload failed');
-      }
-
-      return data;
-    } catch (error: any) {
-      throw new Error(error.message || 'Upload error');
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/';
     }
+    return Promise.reject(error);
   }
-}
-
-const apiService = new ApiService();
+);
 
 // Authentication API
 export const authAPI = {
-  login: (data: LoginFormData) => 
-    apiService.request<{ user: User; token: string }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  login: async (email: string, password: string): Promise<User & { token: string }> => {
+    console.log('Auth attempt:', { email, password: 'mkoo09', action: 'login' });
+    const response = await api.post('/auth/login', { email, password });
+    const userData = response.data;
+    
+    // Store token and user data
+    localStorage.setItem('token', userData.token);
+    localStorage.setItem('user', JSON.stringify(userData));
+    
+    return userData;
+  },
 
-  register: (data: RegisterFormData) => 
-    apiService.request<{ user: User; token: string }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+  register: async (userData: RegisterFormData): Promise<User & { token: string }> => {
+    const response = await api.post('/auth/register', userData);
+    const newUser = response.data;
+    
+    // Store token and user data
+    localStorage.setItem('token', newUser.token);
+    localStorage.setItem('user', JSON.stringify(newUser));
+    
+    return newUser;
+  },
 
-  logout: () => 
-    apiService.request('/auth/logout', { method: 'POST' }),
+  logout: async (): Promise<void> => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  },
 
-  verifyToken: () => 
-    apiService.request<User>('/auth/verify'),
+  getCurrentUser: (): User | null => {
+    const userData = localStorage.getItem('user');
+    return userData ? JSON.parse(userData) : null;
+  },
 
-  resetPassword: (email: string) => 
-    apiService.request('/auth/reset-password', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    }),
+  verifyToken: async (): Promise<User> => {
+    const response = await api.get('/auth/verify');
+    return response.data;
+  },
+};
 
-  changePassword: (data: PasswordChangeFormData) => 
-    apiService.request('/auth/change-password', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
+// Classes API
+export const classesAPI = {
+  getClasses: async (): Promise<Class[]> => {
+    const response = await api.get('/classes');
+    return response.data;
+  },
+
+  createClass: async (classData: ClassFormData): Promise<Class> => {
+    const response = await api.post('/classes', classData);
+    return response.data;
+  },
+
+  getClass: async (classId: string): Promise<Class> => {
+    const response = await api.get(`/classes/${classId}`);
+    return response.data;
+  },
+
+  updateClass: async (classId: string, classData: Partial<ClassFormData>): Promise<Class> => {
+    const response = await api.put(`/classes/${classId}`, classData);
+    return response.data;
+  },
+
+  deleteClass: async (classId: string): Promise<void> => {
+    await api.delete(`/classes/${classId}`);
+  },
+
+  joinClass: async (inviteCode: string): Promise<Class> => {
+    const response = await api.post('/classes/join', { inviteCode });
+    return response.data;
+  },
+};
+
+// Assignments API
+export const assignmentsAPI = {
+  getAssignments: async (classId?: string): Promise<Assignment[]> => {
+    const url = classId ? `/assignments?classId=${classId}` : '/assignments';
+    const response = await api.get(url);
+    return response.data;
+  },
+
+  createAssignment: async (assignmentData: AssignmentFormData): Promise<Assignment> => {
+    const formData = new FormData();
+    formData.append('title', assignmentData.title);
+    formData.append('description', assignmentData.description);
+    formData.append('classId', assignmentData.classId);
+    formData.append('dueDate', assignmentData.dueDate);
+    formData.append('maxGrade', assignmentData.maxGrade.toString());
+    
+    if (assignmentData.instructions) {
+      formData.append('instructions', assignmentData.instructions);
+    }
+    
+    if (assignmentData.attachments) {
+      assignmentData.attachments.forEach((file) => {
+        formData.append('attachments', file);
+      });
+    }
+
+    const response = await api.post('/assignments', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  },
+
+  getAssignment: async (assignmentId: string): Promise<Assignment> => {
+    const response = await api.get(`/assignments/${assignmentId}`);
+    return response.data;
+  },
+
+  updateAssignment: async (assignmentId: string, assignmentData: Partial<AssignmentFormData>): Promise<Assignment> => {
+    const response = await api.put(`/assignments/${assignmentId}`, assignmentData);
+    return response.data;
+  },
+
+  deleteAssignment: async (assignmentId: string): Promise<void> => {
+    await api.delete(`/assignments/${assignmentId}`);
+  },
 };
 
 // User/Profile API
 export const userAPI = {
-  getProfile: () => 
-    apiService.request<User>('/users/profile'),
-
-  updateProfile: (data: ProfileFormData) => {
+  updateProfile: async (profileData: ProfileFormData): Promise<User> => {
     const formData = new FormData();
-    formData.append('name', data.name);
-    formData.append('email', data.email);
-    if (data.avatar) {
-      formData.append('avatar', data.avatar);
+    formData.append('name', profileData.name);
+    formData.append('email', profileData.email);
+    
+    if (profileData.avatar) {
+      formData.append('avatar', profileData.avatar);
     }
-    return apiService.upload('/users/profile', formData);
+
+    const response = await api.put('/users/profile', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
   },
 
-  changePassword: (data: PasswordChangeFormData) => 
-    apiService.request('/users/change-password', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-
-  getNotifications: () => 
-    apiService.request<Notification[]>('/users/notifications'),
-
-  markNotificationRead: (notificationId: string) => 
-    apiService.request(`/users/notifications/${notificationId}/read`, {
-      method: 'PUT',
-    }),
-};
-
-// Classes API
-export const classAPI = {
-  getClasses: () => 
-    apiService.request<Class[]>('/classes'),
-
-  getClass: (classId: string) => 
-    apiService.request<Class>(`/classes/${classId}`),
-
-  createClass: (data: ClassFormData) => 
-    apiService.request<Class>('/classes', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-
-  updateClass: (classId: string, data: Partial<ClassFormData>) => 
-    apiService.request<Class>(`/classes/${classId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-
-  deleteClass: (classId: string) => 
-    apiService.request(`/classes/${classId}`, {
-      method: 'DELETE',
-    }),
-
-  joinClass: (inviteCode: string) => 
-    apiService.request<Class>('/classes/join', {
-      method: 'POST',
-      body: JSON.stringify({ inviteCode }),
-    }),
-
-  leaveClass: (classId: string) => 
-    apiService.request(`/classes/${classId}/leave`, {
-      method: 'POST',
-    }),
-
-  addStudent: (classId: string, studentEmail: string) => 
-    apiService.request(`/classes/${classId}/students`, {
-      method: 'POST',
-      body: JSON.stringify({ studentEmail }),
-    }),
-
-  removeStudent: (classId: string, studentId: string) => 
-    apiService.request(`/classes/${classId}/students/${studentId}`, {
-      method: 'DELETE',
-    }),
-
-  getClassStudents: (classId: string) => 
-    apiService.request<User[]>(`/classes/${classId}/students`),
-};
-
-// Assignments API
-export const assignmentAPI = {
-  getAssignments: (classId?: string) => 
-    apiService.request<Assignment[]>(`/assignments${classId ? `?classId=${classId}` : ''}`),
-
-  getAssignment: (assignmentId: string) => 
-    apiService.request<Assignment>(`/assignments/${assignmentId}`),
-
-  createAssignment: (data: AssignmentFormData) => {
-    const formData = new FormData();
-    formData.append('title', data.title);
-    formData.append('description', data.description);
-    formData.append('classId', data.classId);
-    formData.append('dueDate', data.dueDate);
-    formData.append('maxGrade', data.maxGrade.toString());
-    if (data.instructions) {
-      formData.append('instructions', data.instructions);
-    }
-    if (data.attachments) {
-      data.attachments.forEach((file, index) => {
-        formData.append(`attachments`, file);
-      });
-    }
-    return apiService.upload('/assignments', formData);
+  changePassword: async (passwordData: PasswordChangeFormData): Promise<void> => {
+    await api.put('/users/change-password', passwordData);
   },
-
-  updateAssignment: (assignmentId: string, data: Partial<AssignmentFormData>) => 
-    apiService.request<Assignment>(`/assignments/${assignmentId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-
-  deleteAssignment: (assignmentId: string) => 
-    apiService.request(`/assignments/${assignmentId}`, {
-      method: 'DELETE',
-    }),
-
-  getSubmissions: (assignmentId: string) => 
-    apiService.request<Submission[]>(`/assignments/${assignmentId}/submissions`),
-
-  getMySubmission: (assignmentId: string) => 
-    apiService.request<Submission>(`/assignments/${assignmentId}/my-submission`),
 };
 
 // Submissions API
-export const submissionAPI = {
-  submitAssignment: (assignmentId: string, data: SubmissionFormData) => {
+export const submissionsAPI = {
+  submitAssignment: async (assignmentId: string, submissionData: SubmissionFormData): Promise<Submission> => {
     const formData = new FormData();
-    if (data.content) {
-      formData.append('content', data.content);
+    
+    if (submissionData.content) {
+      formData.append('content', submissionData.content);
     }
-    if (data.attachments) {
-      data.attachments.forEach((file) => {
+    
+    if (submissionData.attachments) {
+      submissionData.attachments.forEach((file) => {
         formData.append('attachments', file);
       });
     }
-    return apiService.upload(`/submissions/${assignmentId}`, formData);
+
+    const response = await api.post(`/submissions/${assignmentId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
   },
 
-  updateSubmission: (submissionId: string, data: SubmissionFormData) => {
-    const formData = new FormData();
-    if (data.content) {
-      formData.append('content', data.content);
-    }
-    if (data.attachments) {
-      data.attachments.forEach((file) => {
-        formData.append('attachments', file);
-      });
-    }
-    return apiService.upload(`/submissions/${submissionId}`, formData);
+  getSubmissions: async (assignmentId: string): Promise<Submission[]> => {
+    const response = await api.get(`/assignments/${assignmentId}/submissions`);
+    return response.data;
   },
 
-  gradeSubmission: (submissionId: string, grade: number, feedback?: string) => 
-    apiService.request<Submission>(`/submissions/${submissionId}/grade`, {
-      method: 'PUT',
-      body: JSON.stringify({ grade, feedback }),
-    }),
-
-  getSubmission: (submissionId: string) => 
-    apiService.request<Submission>(`/submissions/${submissionId}`),
+  gradeSubmission: async (submissionId: string, grade: number, feedback?: string): Promise<Submission> => {
+    const response = await api.put(`/submissions/${submissionId}/grade`, { grade, feedback });
+    return response.data;
+  },
 };
 
 // Announcements API
-export const announcementAPI = {
-  getAnnouncements: (classId: string) => 
-    apiService.request<Announcement[]>(`/announcements?classId=${classId}`),
+export const announcementsAPI = {
+  getAnnouncements: async (classId: string): Promise<Announcement[]> => {
+    const response = await api.get(`/announcements?classId=${classId}`);
+    return response.data;
+  },
 
-  getAnnouncement: (announcementId: string) => 
-    apiService.request<Announcement>(`/announcements/${announcementId}`),
-
-  createAnnouncement: (data: AnnouncementFormData) => {
+  createAnnouncement: async (announcementData: AnnouncementFormData): Promise<Announcement> => {
     const formData = new FormData();
-    formData.append('title', data.title);
-    formData.append('content', data.content);
-    formData.append('classId', data.classId);
-    if (data.attachments) {
-      data.attachments.forEach((file) => {
+    formData.append('title', announcementData.title);
+    formData.append('content', announcementData.content);
+    formData.append('classId', announcementData.classId);
+    
+    if (announcementData.attachments) {
+      announcementData.attachments.forEach((file) => {
         formData.append('attachments', file);
       });
     }
-    return apiService.upload('/announcements', formData);
+
+    const response = await api.post('/announcements', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
   },
-
-  updateAnnouncement: (announcementId: string, data: Partial<AnnouncementFormData>) => 
-    apiService.request<Announcement>(`/announcements/${announcementId}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    }),
-
-  deleteAnnouncement: (announcementId: string) => 
-    apiService.request(`/announcements/${announcementId}`, {
-      method: 'DELETE',
-    }),
-
-  addComment: (announcementId: string, content: string) => 
-    apiService.request(`/announcements/${announcementId}/comments`, {
-      method: 'POST',
-      body: JSON.stringify({ content }),
-    }),
-};
-
-// Messages API
-export const messageAPI = {
-  getMessages: (userId?: string) => 
-    apiService.request<Message[]>(`/messages${userId ? `?userId=${userId}` : ''}`),
-
-  sendMessage: (recipientId: string, content: string, classId?: string) => 
-    apiService.request<Message>('/messages', {
-      method: 'POST',
-      body: JSON.stringify({ recipientId, content, classId }),
-    }),
-
-  markMessageRead: (messageId: string) => 
-    apiService.request(`/messages/${messageId}/read`, {
-      method: 'PUT',
-    }),
-
-  getConversations: () => 
-    apiService.request<{ user: User; lastMessage: Message; unreadCount: number }[]>('/messages/conversations'),
-};
-
-// Analytics API (for teachers)
-export const analyticsAPI = {
-  getClassAnalytics: (classId: string) => 
-    apiService.request<{
-      studentCount: number;
-      assignmentCount: number;
-      averageGrade: number;
-      submissionRate: number;
-      studentPerformance: { student: User; averageGrade: number; submissionRate: number }[];
-    }>(`/analytics/classes/${classId}`),
-
-  getAssignmentAnalytics: (assignmentId: string) => 
-    apiService.request<{
-      submissionCount: number;
-      averageGrade: number;
-      gradeDistribution: { range: string; count: number }[];
-      lateSubmissions: number;
-    }>(`/analytics/assignments/${assignmentId}`),
-
-  getStudentProgress: (studentId?: string) => 
-    apiService.request<{
-      overallGrade: number;
-      submissionRate: number;
-      recentGrades: { assignment: Assignment; grade: number; date: string }[];
-      improvementTrend: 'up' | 'down' | 'stable';
-    }>(`/analytics/student-progress${studentId ? `?studentId=${studentId}` : ''}`),
 };

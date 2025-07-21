@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { StudentDashboard } from "@/components/dashboard/StudentDashboard";
 import { TeacherDashboard } from "@/components/dashboard/TeacherDashboard";
@@ -7,93 +7,50 @@ import { CreateAssignmentModal } from "@/components/assignments/CreateAssignment
 import { Layout } from "@/components/layout/Layout";
 import { useNavigate } from "react-router-dom";
 
-// Mock data - replace with API calls
-const mockClasses = [
-  {
-    id: "1",
-    name: "Mathematics 101",
-    teacher: "Dr. Smith",
-    studentCount: 25,
-    nextClass: "Mon 10:00 AM",
-    nextSession: "Mon 10:00 AM",
-    recentActivity: "2 new assignments posted",
-    color: "#3B82F6"
-  },
-  {
-    id: "2", 
-    name: "Physics Fundamentals",
-    teacher: "Prof. Johnson",
-    studentCount: 18,
-    nextClass: "Wed 2:00 PM",
-    nextSession: "Wed 2:00 PM",
-    recentActivity: "Quiz results available",
-    color: "#10B981"
-  }
-];
-
-// Full Class objects for modals that need complete type
-const mockClassesForModal = [
-  {
-    _id: "1",
-    name: "Mathematics 101",
-    subject: "Mathematics", 
-    description: "Advanced mathematics course",
-    teacher: { _id: "t1", name: "Dr. Smith", email: "smith@school.edu", role: "teacher" as const, createdAt: "2024-01-01", updatedAt: "2024-01-01" },
-    students: [],
-    inviteCode: "MATH01",
-    color: "#3B82F6",
-    schedule: [],
-    createdAt: "2024-01-01",
-    updatedAt: "2024-01-01"
-  },
-  {
-    _id: "2",
-    name: "Physics Fundamentals", 
-    subject: "Physics",
-    description: "Basic physics principles",
-    teacher: { _id: "t2", name: "Prof. Johnson", email: "johnson@school.edu", role: "teacher" as const, createdAt: "2024-01-01", updatedAt: "2024-01-01" },
-    students: [],
-    inviteCode: "PHYS01", 
-    color: "#10B981",
-    schedule: [],
-    createdAt: "2024-01-01",
-    updatedAt: "2024-01-01"
-  }
-];
-
-const mockAssignments = [
-  {
-    id: "1",
-    title: "Algebra Problem Set 3",
-    className: "Mathematics 101",
-    dueDate: "March 15, 2024",
-    status: "pending" as const,
-    submissionsCount: 12,
-    totalStudents: 25,
-    gradedCount: 8
-  },
-  {
-    id: "2",
-    title: "Newton's Laws Lab Report", 
-    className: "Physics Fundamentals",
-    dueDate: "March 20, 2024",
-    status: "submitted" as const,
-    submissionsCount: 15,
-    totalStudents: 18,
-    gradedCount: 15
-  }
-];
-
+// Remove hardcoded data - will fetch from backend
 const DashboardPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [showCreateClassModal, setShowCreateClassModal] = useState(false);
   const [showCreateAssignmentModal, setShowCreateAssignmentModal] = useState(false);
+  const [classes, setClasses] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (!user) {
-    navigate('/');
-    return null;
-  }
+  // Fix: Move navigation to useEffect to prevent render-time navigation
+  React.useEffect(() => {
+    if (!user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
+
+  if (!user) return null;
+
+  // Fetch data from backend
+  React.useEffect(() => {
+    const fetchData = async () => {
+      if (!user) return;
+      
+      setLoading(true);
+      try {
+        // Fetch user's classes and assignments from backend
+        const [classesData, assignmentsData] = await Promise.all([
+          // Replace with actual API calls
+          Promise.resolve([]), // classesAPI.getClasses()
+          Promise.resolve([])  // assignmentsAPI.getAssignments()
+        ]);
+        
+        setClasses(classesData);
+        setAssignments(assignmentsData);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [user]);
 
   const handleCreateClass = () => {
     setShowCreateClassModal(true);
@@ -123,21 +80,34 @@ const DashboardPage = () => {
     navigate(`/assignments/${assignmentId}`);
   };
 
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       {user.role === 'student' ? (
         <StudentDashboard
           user={user}
-          classes={mockClasses}
-          assignments={mockAssignments}
+          classes={classes}
+          assignments={assignments}
           onViewClass={handleViewClass}
           onViewAssignment={handleViewAssignment}
         />
       ) : (
         <TeacherDashboard
           user={user}
-          classes={mockClasses}
-          assignments={mockAssignments}
+          classes={classes}
+          assignments={assignments}
           onCreateClass={handleCreateClass}
           onCreateAssignment={handleCreateAssignment}
           onViewClass={handleViewClass}
@@ -156,7 +126,7 @@ const DashboardPage = () => {
         open={showCreateAssignmentModal}
         onOpenChange={setShowCreateAssignmentModal}
         onSubmit={handleSubmitAssignment}
-        classes={mockClassesForModal}
+        classes={classes}
       />
     </Layout>
   );

@@ -24,7 +24,7 @@ interface ProfileModalProps {
 }
 
 export const ProfileModal = ({ open, onOpenChange }: ProfileModalProps) => {
-  const { user, updateUser } = useAuth();
+  const { user, updateProfile, changePassword } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [profileData, setProfileData] = useState<ProfileFormData>({
@@ -53,14 +53,11 @@ export const ProfileModal = ({ open, onOpenChange }: ProfileModalProps) => {
     setIsLoading(true);
     
     try {
-      const response = await userAPI.updateProfile(profileData);
-      if (response.success) {
-        updateUser(response.data);
-        toast({
-          title: "Profile Updated",
-          description: "Your profile has been successfully updated.",
-        });
-      }
+      const updatedUser = await updateProfile(profileData);
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been successfully updated.",
+      });
     } catch (error: any) {
       toast({
         title: "Update Failed",
@@ -96,18 +93,16 @@ export const ProfileModal = ({ open, onOpenChange }: ProfileModalProps) => {
     setIsLoading(true);
     
     try {
-      const response = await userAPI.changePassword(passwordData);
-      if (response.success) {
-        toast({
-          title: "Password Changed",
-          description: "Your password has been successfully updated.",
-        });
-        setPasswordData({
-          currentPassword: '',
-          newPassword: '',
-          confirmPassword: ''
-        });
-      }
+      await changePassword(passwordData);
+      toast({
+        title: "Password Changed",
+        description: "Your password has been successfully updated.",
+      });
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
     } catch (error: any) {
       toast({
         title: "Password Change Failed",

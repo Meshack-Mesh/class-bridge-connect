@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 
 const ProfilePage = () => {
-  const { user, updateUser } = useAuth();
+  const { user, updateProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [profileData, setProfileData] = useState({
@@ -53,11 +53,13 @@ const ProfilePage = () => {
     averageClassRating: 4.8
   };
 
-  const handleSaveProfile = () => {
-    console.log('Saving profile:', profileData);
-    // TODO: API call to update profile
-    updateUser({ name: profileData.name, email: profileData.email });
-    setIsEditing(false);
+  const handleSaveProfile = async () => {
+    try {
+      await updateProfile({ name: profileData.name, email: profileData.email });
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+    }
   };
 
   const handleChangePassword = () => {
