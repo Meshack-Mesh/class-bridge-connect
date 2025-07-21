@@ -396,9 +396,10 @@ const AssignmentsPage = () => {
 
         {/* Create Assignment Modal */}
         <CreateAssignmentModal
-          isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
+          open={showCreateModal}
+          onOpenChange={setShowCreateModal}
           onSubmit={handleCreateAssignment}
+          classes={[]}
         />
       </div>
     </div>

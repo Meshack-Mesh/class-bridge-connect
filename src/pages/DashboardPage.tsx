@@ -117,15 +117,16 @@ const DashboardPage = () => {
 
       {/* Modals */}
       <CreateClassModal
-        isOpen={showCreateClassModal}
-        onClose={() => setShowCreateClassModal(false)}
+        open={showCreateClassModal}
+        onOpenChange={setShowCreateClassModal}
         onSubmit={handleSubmitClass}
       />
       
       <CreateAssignmentModal
-        isOpen={showCreateAssignmentModal}
-        onClose={() => setShowCreateAssignmentModal(false)}
+        open={showCreateAssignmentModal}
+        onOpenChange={setShowCreateAssignmentModal}
         onSubmit={handleSubmitAssignment}
+        classes={mockClasses}
       />
     </Layout>
   );

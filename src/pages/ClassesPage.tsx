@@ -290,14 +290,14 @@ const ClassesPage = () => {
 
         {/* Modals */}
         <CreateClassModal
-          isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
+          open={showCreateModal}
+          onOpenChange={setShowCreateModal}
           onSubmit={handleCreateClass}
         />
         
         <JoinClassModal
-          isOpen={showJoinModal}
-          onClose={() => setShowJoinModal(false)}
+          open={showJoinModal}
+          onOpenChange={setShowJoinModal}
           onSubmit={handleJoinClass}
         />
       </div>
