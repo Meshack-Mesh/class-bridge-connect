@@ -14,8 +14,8 @@ type User = {
 };
 
 const mockUser: User = {
-  name: "John Doe",
-  email: "john@example.com",
+  name: "name",
+  email: "email",
   role: "student"
 };
 
