@@ -31,6 +31,36 @@ const mockClasses = [
   }
 ];
 
+// Full Class objects for modals that need complete type
+const mockClassesForModal = [
+  {
+    _id: "1",
+    name: "Mathematics 101",
+    subject: "Mathematics", 
+    description: "Advanced mathematics course",
+    teacher: { _id: "t1", name: "Dr. Smith", email: "smith@school.edu", role: "teacher" as const, createdAt: "2024-01-01", updatedAt: "2024-01-01" },
+    students: [],
+    inviteCode: "MATH01",
+    color: "#3B82F6",
+    schedule: [],
+    createdAt: "2024-01-01",
+    updatedAt: "2024-01-01"
+  },
+  {
+    _id: "2",
+    name: "Physics Fundamentals", 
+    subject: "Physics",
+    description: "Basic physics principles",
+    teacher: { _id: "t2", name: "Prof. Johnson", email: "johnson@school.edu", role: "teacher" as const, createdAt: "2024-01-01", updatedAt: "2024-01-01" },
+    students: [],
+    inviteCode: "PHYS01", 
+    color: "#10B981",
+    schedule: [],
+    createdAt: "2024-01-01",
+    updatedAt: "2024-01-01"
+  }
+];
+
 const mockAssignments = [
   {
     id: "1",
@@ -126,7 +156,7 @@ const DashboardPage = () => {
         open={showCreateAssignmentModal}
         onOpenChange={setShowCreateAssignmentModal}
         onSubmit={handleSubmitAssignment}
-        classes={mockClasses}
+        classes={mockClassesForModal}
       />
     </Layout>
   );
