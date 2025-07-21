@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, User, LogOut } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { GraduationCap, User, LogOut, Menu } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
 interface HeaderProps {
@@ -13,6 +15,7 @@ interface HeaderProps {
 
 export const Header = ({ user, onAuthAction }: HeaderProps) => {
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const isActive = (path: string) => {
     if (path === '/dashboard' && location.pathname === '/') return true;
@@ -83,6 +86,86 @@ export const Header = ({ user, onAuthAction }: HeaderProps) => {
 
         {/* User Actions */}
         <div className="flex items-center space-x-4">
+          {/* Mobile Menu */}
+          {user && (
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="sm" className="md:hidden">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px]">
+                <div className="flex flex-col space-y-4 mt-8">
+                  <Link 
+                    to="/dashboard" 
+                    className={`text-foreground hover:text-primary transition-colors p-3 rounded-lg ${
+                      isActive('/dashboard') ? 'text-primary bg-primary/10 font-medium' : ''
+                    }`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  <Link 
+                    to="/classes" 
+                    className={`text-foreground hover:text-primary transition-colors p-3 rounded-lg ${
+                      isActive('/classes') ? 'text-primary bg-primary/10 font-medium' : ''
+                    }`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Classes
+                  </Link>
+                  <Link 
+                    to="/assignments" 
+                    className={`text-foreground hover:text-primary transition-colors p-3 rounded-lg ${
+                      isActive('/assignments') ? 'text-primary bg-primary/10 font-medium' : ''
+                    }`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Assignments
+                  </Link>
+                  {user.role === 'student' && (
+                    <Link 
+                      to="/announcements" 
+                      className={`text-foreground hover:text-primary transition-colors p-3 rounded-lg ${
+                        isActive('/announcements') ? 'text-primary bg-primary/10 font-medium' : ''
+                      }`}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Announcements
+                    </Link>
+                  )}
+                  <Link 
+                    to="/profile" 
+                    className={`text-foreground hover:text-primary transition-colors p-3 rounded-lg ${
+                      isActive('/profile') ? 'text-primary bg-primary/10 font-medium' : ''
+                    }`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Profile
+                  </Link>
+                  
+                  <div className="pt-4 border-t">
+                    <div className="text-center mb-4">
+                      <p className="text-sm font-medium text-foreground">{user.name}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{user.role}</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        onAuthAction('logout');
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </Button>
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+          )}
+
           {user ? (
             <div className="flex items-center space-x-2">
               <div className="text-right hidden sm:block">
@@ -93,7 +176,7 @@ export const Header = ({ user, onAuthAction }: HeaderProps) => {
                 variant="outline"
                 size="sm"
                 onClick={() => onAuthAction('logout')}
-                className="flex items-center space-x-1"
+                className="hidden md:flex items-center space-x-1"
               >
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline">Logout</span>

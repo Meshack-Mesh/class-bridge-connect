@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -99,8 +100,9 @@ const AssignmentsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8">
+    <Layout>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex justify-between items-start mb-8">
           <div>
@@ -401,8 +403,9 @@ const AssignmentsPage = () => {
           onSubmit={handleCreateAssignment}
           classes={[]}
         />
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 

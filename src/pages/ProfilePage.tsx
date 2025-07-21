@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { Layout } from "@/components/layout/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,8 +80,9 @@ const ProfilePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <Layout>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Profile</h1>
@@ -361,8 +363,9 @@ const ProfilePage = () => {
             </Tabs>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 
