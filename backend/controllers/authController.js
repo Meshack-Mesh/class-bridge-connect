@@ -1,23 +1,66 @@
-import User from '../models/User.js';
-import { generateToken } from '../utils/generateToken.js';
+const User = require("../models/User");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 
-export const registerUser = async (req, res) => {
-  const { name, email, password, role } = req.body;
-  const exists = await User.findOne({ email });
-  if (exists) return res.status(400).json({ message: 'User already exists' });
-
-  const user = await User.create({ name, email, password, role });
-  const token = generateToken(user);
-  res.status(201).json({ ...user._doc, token });
+// Create JWT
+const createToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
+    expiresIn: "3d",
+  });
 };
 
-export const loginUser = async (req, res) => {
-  const { email, password } = req.body;
-  const user = await User.findOne({ email });
-  if (user && (await user.matchPassword(password))) {
-    const token = generateToken(user);
-    res.json({ ...user._doc, token });
-  } else {
-    res.status(401).json({ message: 'Invalid credentials' });
+// Register User
+const registerUser = async (req, res) => {
+  try {
+    const { username, email, password } = req.body;
+
+    // Check for existing user
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json("Email already exists");
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create user
+    const newUser = new User({
+      username,
+      email,
+      password: hashedPassword,
+    });
+
+    await newUser.save();
+
+    res.status(201).json("User registered successfully");
+  } catch (err) {
+    res.status(500).json(err.message || "Server Error");
   }
 };
+
+// Login User
+const loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json("Invalid email or password");
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json("Invalid email or password");
+    }
+
+    const token = createToken(user._id);
+
+    const { password: pwd, ...userWithoutPassword } = user._doc;
+    res.status(200).json({ user: userWithoutPassword, token });
+  } catch (err) {
+    res.status(500).json(err.message || "Server Error");
+  }
+};
+
+module.exports = { registerUser, loginUser };
