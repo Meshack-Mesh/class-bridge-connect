@@ -1,9 +1,10 @@
-// server.js
-const express = require('express');
-const dotenv = require('dotenv');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const cookieParser = require('cookie-parser');
+// server.js (ES Modules version)
+import express from 'express';
+import dotenv from 'dotenv';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import authRoutes from './routes/authRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -29,6 +30,9 @@ app.use(cookieParser());
 app.use('/api/auth', authRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/students', studentRoutes);
+
+// Routes
+app.use('/api/auth', authRoutes);
 
 // Basic test route
 app.get('/', (req, res) => {
