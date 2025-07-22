@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 
-const UserSchema = new mongoose.Schema(
+const userSchema = new mongoose.Schema(
   {
     username: {
       type: String,
@@ -49,9 +50,59 @@ const UserSchema = new mongoose.Schema(
     overallGPA: {
       type: Number,
       default: 0
+    },
+    isActive: {
+      type: Boolean,
+      default: true
     }
   },
-  { timestamps: true }
+  { 
+    timestamps: true,
+    collection: 'users' // Explicitly set collection name
+  }
 );
 
-module.exports = mongoose.model("User", UserSchema);
+// Hash password before saving
+userSchema.pre('save', async function(next) {
+  // Only hash the password if it has been modified (or is new)
+  if (!this.isModified('password')) return next();
+
+  try {
+    // Hash password with cost of 12
+    const hashedPassword = await bcrypt.hash(this.password, 12);
+    this.password = hashedPassword;
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Instance method to check password
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Static method to login user
+userSchema.statics.login = async function(identifier, password) {
+  let user;
+  
+  // Check if identifier is email (for teachers) or registration number (for students)
+  if (identifier.includes('@')) {
+    user = await this.findOne({ email: identifier });
+  } else {
+    user = await this.findOne({ registrationNumber: identifier });
+  }
+
+  if (!user) {
+    throw new Error('Invalid credentials');
+  }
+
+  const isPasswordCorrect = await user.comparePassword(password);
+  if (!isPasswordCorrect) {
+    throw new Error('Invalid credentials');
+  }
+
+  return user;
+};
+
+module.exports = mongoose.model("User", userSchema);

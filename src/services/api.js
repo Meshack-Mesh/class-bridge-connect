@@ -1,11 +1,5 @@
 // API service for EduConnect MERN backend
 import axios from 'axios';
-import {
-  User, Class, Assignment, Submission, Announcement, Message, Notification,
-  ApiResponse, PaginatedResponse, LoginFormData, RegisterFormData,
-  ClassFormData, AssignmentFormData, SubmissionFormData, AnnouncementFormData,
-  ProfileFormData, PasswordChangeFormData
-} from '@/types';
 
 // Base API configuration
 const API_BASE_URL = 'http://localhost:5000/api';
@@ -32,6 +26,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.error('API Error:', error.response?.data || error.message);
+    
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -46,40 +42,77 @@ export { api };
 
 // Authentication API
 export const authAPI = {
-  login: async (email: string, password: string): Promise<User & { token: string }> => {
-    console.log('Auth attempt:', { email, password: 'mkoo09', action: 'login' });
-    const response = await api.post('/auth/login', { email, password });
+  login: async (credentials) => {
+    console.log('Login attempt:', credentials);
+    
+    const loginData = {
+      password: credentials.password
+    };
+
+    // Add email for teachers or registrationNumber for students
+    if (credentials.email) {
+      loginData.email = credentials.email;
+    } else if (credentials.registrationNumber) {
+      loginData.registrationNumber = credentials.registrationNumber;
+    }
+
+    const response = await api.post('/auth/login', loginData);
     const userData = response.data;
     
     // Store token and user data
-    localStorage.setItem('token', userData.token);
-    localStorage.setItem('user', JSON.stringify(userData));
+    if (userData.success && userData.token) {
+      localStorage.setItem('token', userData.token);
+      localStorage.setItem('user', JSON.stringify(userData.user));
+    }
     
     return userData;
   },
 
-  register: async (userData: RegisterFormData): Promise<User & { token: string }> => {
-    const response = await api.post('/auth/register', userData);
+  register: async (userData) => {
+    console.log('Registration attempt:', userData);
+    
+    const registerData = {
+      username: userData.name, // Map 'name' to 'username' for backend
+      password: userData.password,
+      role: userData.role
+    };
+
+    // Add email for teachers or registrationNumber for students
+    if (userData.role === 'teacher') {
+      registerData.email = userData.email;
+    } else if (userData.role === 'student') {
+      registerData.registrationNumber = userData.registrationNumber;
+    }
+
+    const response = await api.post('/auth/register', registerData);
     const newUser = response.data;
     
     // Store token and user data
-    localStorage.setItem('token', newUser.token);
-    localStorage.setItem('user', JSON.stringify(newUser));
+    if (newUser.success && newUser.token) {
+      localStorage.setItem('token', newUser.token);
+      localStorage.setItem('user', JSON.stringify(newUser.user));
+    }
     
     return newUser;
   },
 
-  logout: async (): Promise<void> => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  logout: async () => {
+    try {
+      await api.get('/auth/logout');
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
   },
 
-  getCurrentUser: (): User | null => {
+  getCurrentUser: () => {
     const userData = localStorage.getItem('user');
     return userData ? JSON.parse(userData) : null;
   },
 
-  verifyToken: async (): Promise<User> => {
+  verifyToken: async () => {
     const response = await api.get('/auth/verify');
     return response.data;
   },
@@ -87,31 +120,31 @@ export const authAPI = {
 
 // Classes API
 export const classesAPI = {
-  getClasses: async (): Promise<Class[]> => {
+  getClasses: async () => {
     const response = await api.get('/classes');
     return response.data;
   },
 
-  createClass: async (classData: ClassFormData): Promise<Class> => {
+  createClass: async (classData) => {
     const response = await api.post('/classes', classData);
     return response.data;
   },
 
-  getClass: async (classId: string): Promise<Class> => {
+  getClass: async (classId) => {
     const response = await api.get(`/classes/${classId}`);
     return response.data;
   },
 
-  updateClass: async (classId: string, classData: Partial<ClassFormData>): Promise<Class> => {
+  updateClass: async (classId, classData) => {
     const response = await api.put(`/classes/${classId}`, classData);
     return response.data;
   },
 
-  deleteClass: async (classId: string): Promise<void> => {
+  deleteClass: async (classId) => {
     await api.delete(`/classes/${classId}`);
   },
 
-  joinClass: async (inviteCode: string): Promise<Class> => {
+  joinClass: async (inviteCode) => {
     const response = await api.post('/classes/join', { inviteCode });
     return response.data;
   },
@@ -119,13 +152,13 @@ export const classesAPI = {
 
 // Assignments API
 export const assignmentsAPI = {
-  getAssignments: async (classId?: string): Promise<Assignment[]> => {
+  getAssignments: async (classId) => {
     const url = classId ? `/assignments?classId=${classId}` : '/assignments';
     const response = await api.get(url);
     return response.data;
   },
 
-  createAssignment: async (assignmentData: AssignmentFormData): Promise<Assignment> => {
+  createAssignment: async (assignmentData) => {
     const formData = new FormData();
     formData.append('title', assignmentData.title);
     formData.append('description', assignmentData.description);
@@ -149,24 +182,24 @@ export const assignmentsAPI = {
     return response.data;
   },
 
-  getAssignment: async (assignmentId: string): Promise<Assignment> => {
+  getAssignment: async (assignmentId) => {
     const response = await api.get(`/assignments/${assignmentId}`);
     return response.data;
   },
 
-  updateAssignment: async (assignmentId: string, assignmentData: Partial<AssignmentFormData>): Promise<Assignment> => {
+  updateAssignment: async (assignmentId, assignmentData) => {
     const response = await api.put(`/assignments/${assignmentId}`, assignmentData);
     return response.data;
   },
 
-  deleteAssignment: async (assignmentId: string): Promise<void> => {
+  deleteAssignment: async (assignmentId) => {
     await api.delete(`/assignments/${assignmentId}`);
   },
 };
 
 // User/Profile API
 export const userAPI = {
-  updateProfile: async (profileData: ProfileFormData): Promise<User> => {
+  updateProfile: async (profileData) => {
     const formData = new FormData();
     formData.append('name', profileData.name);
     formData.append('email', profileData.email);
@@ -181,14 +214,14 @@ export const userAPI = {
     return response.data;
   },
 
-  changePassword: async (passwordData: PasswordChangeFormData): Promise<void> => {
+  changePassword: async (passwordData) => {
     await api.put('/users/change-password', passwordData);
   },
 };
 
 // Submissions API
 export const submissionsAPI = {
-  submitAssignment: async (assignmentId: string, submissionData: SubmissionFormData): Promise<Submission> => {
+  submitAssignment: async (assignmentId, submissionData) => {
     const formData = new FormData();
     
     if (submissionData.content) {
@@ -207,12 +240,12 @@ export const submissionsAPI = {
     return response.data;
   },
 
-  getSubmissions: async (assignmentId: string): Promise<Submission[]> => {
+  getSubmissions: async (assignmentId) => {
     const response = await api.get(`/assignments/${assignmentId}/submissions`);
     return response.data;
   },
 
-  gradeSubmission: async (submissionId: string, grade: number, feedback?: string): Promise<Submission> => {
+  gradeSubmission: async (submissionId, grade, feedback) => {
     const response = await api.put(`/submissions/${submissionId}/grade`, { grade, feedback });
     return response.data;
   },
@@ -220,12 +253,12 @@ export const submissionsAPI = {
 
 // Announcements API
 export const announcementsAPI = {
-  getAnnouncements: async (classId: string): Promise<Announcement[]> => {
+  getAnnouncements: async (classId) => {
     const response = await api.get(`/announcements?classId=${classId}`);
     return response.data;
   },
 
-  createAnnouncement: async (announcementData: AnnouncementFormData): Promise<Announcement> => {
+  createAnnouncement: async (announcementData) => {
     const formData = new FormData();
     formData.append('title', announcementData.title);
     formData.append('content', announcementData.content);
