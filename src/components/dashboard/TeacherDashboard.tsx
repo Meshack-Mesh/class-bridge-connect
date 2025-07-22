@@ -2,7 +2,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookOpen, Users, FileText, Plus, Calendar, CheckCircle, Clock, BarChart3 } from "lucide-react";
+import { StudentsPerformance } from "./StudentsPerformance";
 
 interface Class {
   id: string;
@@ -128,7 +130,16 @@ export const TeacherDashboard = ({
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Main Content Tabs */}
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="students">Students Performance</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* My Classes */}
           <Card>
             <CardHeader>
@@ -260,6 +271,29 @@ export const TeacherDashboard = ({
             </CardContent>
           </Card>
         </div>
+          </TabsContent>
+
+          <TabsContent value="students" className="space-y-6">
+            <StudentsPerformance />
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Analytics Dashboard</CardTitle>
+                <CardDescription>
+                  Detailed analytics and reports coming soon
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <BarChart3 className="h-12 w-12 mx-auto mb-2" />
+                  <p>Advanced analytics features will be available soon</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

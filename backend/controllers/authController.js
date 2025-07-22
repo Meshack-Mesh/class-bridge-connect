@@ -12,26 +12,40 @@ const createToken = (id) => {
 // Register User
 const registerUser = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, role, registrationNumber } = req.body;
 
-    // Check for existing user
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json("Email already exists");
+    // Check for existing user based on role
+    let existingUser;
+    if (role === 'teacher') {
+      existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json("Email already exists");
+      }
+    } else if (role === 'student') {
+      existingUser = await User.findOne({ registrationNumber });
+      if (existingUser) {
+        return res.status(400).json("Registration number already exists");
+      }
     }
 
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-
     // Create user
-    const newUser = new User({
+    const userData = {
       username,
-      email,
       password: hashedPassword,
-    });
+      role,
+    };
 
+    if (role === 'teacher') {
+      userData.email = email;
+    } else if (role === 'student') {
+      userData.registrationNumber = registrationNumber;
+    }
+
+    const newUser = new User(userData);
     await newUser.save();
 
     res.status(201).json("User registered successfully");
@@ -43,16 +57,22 @@ const registerUser = async (req, res) => {
 // Login User
 const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, registrationNumber } = req.body;
 
-    const user = await User.findOne({ email });
+    let user;
+    if (email) {
+      user = await User.findOne({ email });
+    } else if (registrationNumber) {
+      user = await User.findOne({ registrationNumber });
+    }
+
     if (!user) {
-      return res.status(400).json("Invalid email or password");
+      return res.status(400).json("Invalid credentials");
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json("Invalid email or password");
+      return res.status(400).json("Invalid credentials");
     }
 
     const token = createToken(user._id);
