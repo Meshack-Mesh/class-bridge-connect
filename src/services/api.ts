@@ -41,6 +41,9 @@ api.interceptors.response.use(
   }
 );
 
+// Export the api instance for direct use
+export { api };
+
 // Authentication API
 export const authAPI = {
   login: async (email: string, password: string): Promise<User & { token: string }> => {
