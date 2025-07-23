@@ -182,15 +182,7 @@ export const Header = ({ user, onAuthAction }: HeaderProps) => {
                 <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
-          ) : (
-            <Button 
-              onClick={() => onAuthAction('login')}
-              className="shadow-[var(--shadow-button)]"
-            >
-              <User className="h-4 w-4 mr-2" />
-              Login
-            </Button>
-          )}
+          ) : null}
         </div>
       </div>
     </header>

@@ -4,15 +4,9 @@ import jwt from "jsonwebtoken";
 
 // REGISTER Controller (Role-based)
 export const signup = async (req, res) => {
-  const { name, username, email, registrationNumber, password, role } = req.body;
+  const { name, email, registrationNumber, password, role } = req.body;
 
   try {
-    // Check for existing user by username
-    const existingUser = await User.findOne({ username });
-    if (existingUser) {
-      return res.status(400).json({ message: "Username already exists" });
-    }
-
     // Check for existing email or registration number based on role
     if (role === "teacher" && email) {
       const existingEmail = await User.findOne({ email });
@@ -28,15 +22,21 @@ export const signup = async (req, res) => {
       }
     }
 
-    // Create new user
-    const user = new User({
-      username,
-      email: role === "teacher" ? email : undefined,
-      registrationNumber: role === "student" ? registrationNumber : undefined,
+    // Create new user data object
+    const userData = {
+      name,
       password,
       role,
-    });
+    };
 
+    // Only add email for teachers, only add registrationNumber for students
+    if (role === "teacher") {
+      userData.email = email;
+    } else if (role === "student") {
+      userData.registrationNumber = registrationNumber;
+    }
+
+    const user = new User(userData);
     await user.save();
 
     // Generate token
@@ -50,7 +50,7 @@ export const signup = async (req, res) => {
       token, 
       user: {
         _id: user._id,
-        username: user.username,
+        name: user.name,
         email: user.email,
         registrationNumber: user.registrationNumber,
         role: user.role
@@ -67,11 +67,17 @@ export const signup = async (req, res) => {
 
 // LOGIN Controller
 export const login = async (req, res) => {
-  const { username, password } = req.body;
+  const { identifier, password } = req.body;
 
   try {
-    // Find user by username
-    const user = await User.findOne({ username });
+    let user;
+    
+    // Find user by email or registration number
+    if (identifier.includes("@")) {
+      user = await User.findOne({ email: identifier });
+    } else {
+      user = await User.findOne({ registrationNumber: identifier });
+    }
 
     if (!user) {
       return res.status(400).json({ message: "Invalid credentials" });
@@ -94,7 +100,7 @@ export const login = async (req, res) => {
       token, 
       user: {
         _id: user._id,
-        username: user.username,
+        name: user.name,
         email: user.email,
         registrationNumber: user.registrationNumber,
         role: user.role

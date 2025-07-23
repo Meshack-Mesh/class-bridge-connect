@@ -63,7 +63,11 @@ export const AuthProvider = ({ children }) => {
       
       // Navigate based on user role
       const { role } = response.user;
-      navigate(role === 'teacher' ? '/teacher-dashboard' : '/student-dashboard');
+      if (role === 'teacher') {
+        navigate('/teacher-dashboard');
+      } else {
+        navigate('/student-dashboard');
+      }
       
       return true;
     } catch (error) {
@@ -85,7 +89,11 @@ export const AuthProvider = ({ children }) => {
       
       // Navigate based on user role
       const { role } = response.user;
-      navigate(role === 'teacher' ? '/teacher-dashboard' : '/student-dashboard');
+      if (role === 'teacher') {
+        navigate('/teacher-dashboard');
+      } else {
+        navigate('/student-dashboard');
+      }
       
       return true;
     } catch (error) {
