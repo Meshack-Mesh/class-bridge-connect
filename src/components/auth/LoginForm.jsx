@@ -1,11 +1,25 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 
-export const LoginForm = ({ onSubmit, isLoading }) => {
+export const LoginForm = ({ isLoading, onSuccess }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -15,6 +29,9 @@ export const LoginForm = ({ onSubmit, isLoading }) => {
     action: 'login',
   });
 
+  const [errorMessage, setErrorMessage] = useState('');
+  const navigate = useNavigate();
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -23,9 +40,70 @@ export const LoginForm = ({ onSubmit, isLoading }) => {
     setFormData({ ...formData, role: value });
   };
 
-  const handleSubmit = (e) => {
+  const validateForm = () => {
+    const { name, email, registrationNumber, password, role, action } = formData;
+
+    if (!role || !password) return 'Role and password are required.';
+
+    if (action === 'register') {
+      if (!name) return 'Full name is required.';
+      if (role === 'teacher' && !email) return 'Email is required for teachers.';
+      if (role === 'student' && !registrationNumber)
+        return 'Registration number is required for students.';
+    } else {
+      if (role === 'teacher' && !email) return 'Email is required for teachers.';
+      if (role === 'student' && !registrationNumber)
+        return 'Registration number is required for students.';
+    }
+
+    return '';
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    setErrorMessage('');
+
+    const validationError = validateForm();
+    if (validationError) {
+      setErrorMessage(validationError);
+      return;
+    }
+
+    try {
+      const payload =
+        formData.role === 'teacher'
+          ? { email: formData.email, password: formData.password }
+          : { registrationNumber: formData.registrationNumber, password: formData.password };
+
+      if (formData.action === 'register') {
+        payload.name = formData.name;
+        payload.role = formData.role;
+      }
+
+      const endpoint =
+        formData.action === 'login'
+          ? 'http://localhost:5000/api/auth/login'
+          : 'http://localhost:5000/api/auth/register';
+
+      const response = await axios.post(endpoint, payload);
+
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        alert('Success!');
+
+        if (onSuccess) onSuccess(response.data.user);
+
+        const { role } = response.data.user;
+        navigate(role === 'teacher' ? '/teacher-dashboard' : '/student-dashboard');
+      } else {
+        setErrorMessage('Authentication failed: Token not received');
+      }
+    } catch (error) {
+      console.error('Auth error:', error);
+      setErrorMessage(
+        error.response?.data?.message || 'An unexpected error occurred'
+      );
+    }
   };
 
   return (
@@ -35,8 +113,8 @@ export const LoginForm = ({ onSubmit, isLoading }) => {
           {formData.action === 'login' ? 'Welcome Back' : 'Create Account'}
         </CardTitle>
         <CardDescription>
-          {formData.action === 'login' 
-            ? 'Sign in to your account' 
+          {formData.action === 'login'
+            ? 'Sign in to your account'
             : 'Register for EduConnect'}
         </CardDescription>
       </CardHeader>
@@ -56,7 +134,7 @@ export const LoginForm = ({ onSubmit, isLoading }) => {
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
                 <Select value={formData.role} onValueChange={handleRoleChange}>
@@ -72,7 +150,6 @@ export const LoginForm = ({ onSubmit, isLoading }) => {
             </>
           )}
 
-          {/* Conditional fields based on role */}
           {formData.role === 'teacher' ? (
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
@@ -88,9 +165,7 @@ export const LoginForm = ({ onSubmit, isLoading }) => {
             </div>
           ) : (
             <div className="space-y-2">
-              <Label htmlFor="registrationNumber">
-                {formData.action === 'login' ? 'Registration Number' : 'Registration Number'}
-              </Label>
+              <Label htmlFor="registrationNumber">Registration Number</Label>
               <Input
                 id="registrationNumber"
                 type="text"
@@ -98,7 +173,7 @@ export const LoginForm = ({ onSubmit, isLoading }) => {
                 placeholder="Enter your registration number"
                 value={formData.registrationNumber}
                 onChange={handleChange}
-                required={formData.role === 'student'}
+                required
               />
             </div>
           )}
@@ -116,11 +191,13 @@ export const LoginForm = ({ onSubmit, isLoading }) => {
             />
           </div>
 
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="w-full"
-          >
+          {errorMessage && (
+            <div className="text-red-500 text-sm text-center">
+              {errorMessage}
+            </div>
+          )}
+
+          <Button type="submit" disabled={isLoading} className="w-full">
             {isLoading
               ? 'Processing...'
               : formData.action === 'login'

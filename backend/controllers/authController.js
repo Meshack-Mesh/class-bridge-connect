@@ -1,225 +1,83 @@
-const User = require("../models/User");
-const jwt = require("jsonwebtoken");
+import User from "../models/User.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
-// Create JWT Token
-const createToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || "7d",
-  });
-};
+// REGISTER Controller (Role-based)
+export const signup = async (req, res) => {
+  const { name, email, registrationNumber, password, role } = req.body;
 
-// Send token response
-const sendTokenResponse = (user, statusCode, res) => {
-  const token = createToken(user._id);
-
-  const options = {
-    expires: new Date(
-      Date.now() + (process.env.JWT_COOKIE_EXPIRE || 7) * 24 * 60 * 60 * 1000
-    ),
-    httpOnly: true,
-  };
-
-  if (process.env.NODE_ENV === 'production') {
-    options.secure = true;
-  }
-
-  // Remove password from output
-  const userOutput = {
-    _id: user._id,
-    username: user.username,
-    email: user.email,
-    registrationNumber: user.registrationNumber,
-    role: user.role,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt
-  };
-
-  res
-    .status(statusCode)
-    .cookie('token', token, options)
-    .json({
-      success: true,
-      token,
-      user: userOutput
-    });
-};
-
-// @desc    Register user
-// @route   POST /api/auth/register
-// @access  Public
-const registerUser = async (req, res) => {
   try {
-    const { username, email, password, role, registrationNumber } = req.body;
+    // Check for existing user based on role
+    const query = role === "teacher" ? { email } : { registrationNumber };
+    const existingUser = await User.findOne(query);
 
-    // Validate required fields
-    if (!username || !password || !role) {
-      return res.status(400).json({
-        success: false,
-        error: "Please provide username, password, and role"
-      });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
     }
 
-    // Role-specific validation
-    if (role === 'teacher' && !email) {
-      return res.status(400).json({
-        success: false,
-        error: "Email is required for teachers"
-      });
-    }
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-    if (role === 'student' && !registrationNumber) {
-      return res.status(400).json({
-        success: false,
-        error: "Registration number is required for students"
-      });
-    }
-
-    // Check for existing user
-    let existingUser;
-    if (role === 'teacher') {
-      existingUser = await User.findOne({ email });
-      if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          error: "Email already exists"
-        });
-      }
-    } else if (role === 'student') {
-      existingUser = await User.findOne({ registrationNumber });
-      if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          error: "Registration number already exists"
-        });
-      }
-    }
-
-    // Create user data object
-    const userData = {
-      username,
-      password,
+    // Create new user
+    const user = new User({
+       username: name,
+      email: role === "teacher" ? email : null,
+      registrationNumber: role === "student" ? registrationNumber : null,
+      password: hashedPassword,
       role,
-    };
+    });
 
-    if (role === 'teacher') {
-      userData.email = email;
-    } else if (role === 'student') {
-      userData.registrationNumber = registrationNumber;
-    }
+    await user.save();
 
-    // Create user (password will be hashed automatically by pre-save middleware)
-    const user = await User.create(userData);
+    // Generate token
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
 
-    sendTokenResponse(user, 201, res);
-  } catch (error) {
-    console.error('Registration error:', error);
+    res.status(201).json({ token, user });
+  } catch (err) {
+  console.error("Signup error:", err);
     res.status(500).json({
-      success: false,
-      error: error.message || "Server Error"
+      message: "Registration failed",
+      error: err.message,
     });
   }
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
-const loginUser = async (req, res) => {
+// LOGIN Controller
+export const login = async (req, res) => {
+  const { email, registrationNumber, password } = req.body;
+
   try {
-    const { email, registrationNumber, password } = req.body;
+    // Determine login method
+    const query = email ? { email } : { registrationNumber };
+    const user = await User.findOne(query);
 
-    // Validate email/registrationNumber and password
-    if (!password) {
-      return res.status(400).json({
-        success: false,
-        error: "Please provide password"
-      });
-    }
-
-    if (!email && !registrationNumber) {
-      return res.status(400).json({
-        success: false,
-        error: "Please provide email or registration number"
-      });
-    }
-
-    // Use the static login method from the User model
-    const identifier = email || registrationNumber;
-    const user = await User.login(identifier, password);
-
-    sendTokenResponse(user, 200, res);
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(401).json({
-      success: false,
-      error: error.message || "Invalid credentials"
-    });
-  }
-};
-
-// @desc    Logout user / clear cookie
-// @route   GET /api/auth/logout
-// @access  Private
-const logoutUser = (req, res) => {
-  res.cookie('token', 'none', {
-    expires: new Date(Date.now() + 10 * 1000),
-    httpOnly: true,
-  });
-
-  res.status(200).json({
-    success: true,
-    message: 'User logged out successfully'
-  });
-};
-
-// @desc    Get current logged in user
-// @route   GET /api/auth/me
-// @access  Private
-const getMe = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select('-password');
-    
-    res.status(200).json({
-      success: true,
-      user
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: "Server Error"
-    });
-  }
-};
-
-// @desc    Verify token
-// @route   GET /api/auth/verify
-// @access  Private
-const verifyToken = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select('-password');
-    
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        error: 'User not found'
-      });
+      return res.status(400).json({ message: "Invalid credentials" });
     }
 
-    res.status(200).json({
-      success: true,
-      user
-    });
-  } catch (error) {
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+    // Generate token
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.status(200).json({ token, user });
+  } catch (err) {
     res.status(500).json({
-      success: false,
-      error: "Server Error"
+      message: "Login failed",
+      error: err.message,
     });
   }
-};
-
-module.exports = {
-  registerUser,
-  loginUser,
-  logoutUser,
-  getMe,
-  verifyToken
 };

@@ -1,5 +1,5 @@
-const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
+import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 const userSchema = new mongoose.Schema(
   {
@@ -10,8 +10,8 @@ const userSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: function() {
-        return this.role === 'teacher';
+      required: function () {
+        return this.role === "teacher";
       },
       unique: true,
       sparse: true,
@@ -20,8 +20,8 @@ const userSchema = new mongoose.Schema(
     },
     registrationNumber: {
       type: String,
-      required: function() {
-        return this.role === 'student';
+      required: function () {
+        return this.role === "student";
       },
       unique: true,
       sparse: true,
@@ -34,41 +34,39 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['student', 'teacher'],
+      enum: ["student", "teacher"],
       required: [true, "Role is required"],
     },
-    // Performance tracking for students
-    grades: [{
-      assignment: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Assignment'
+    grades: [
+      {
+        assignment: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Assignment",
+        },
+        grade: Number,
+        submittedAt: Date,
+        gradedAt: Date,
       },
-      grade: Number,
-      submittedAt: Date,
-      gradedAt: Date
-    }],
+    ],
     overallGPA: {
       type: Number,
-      default: 0
+      default: 0,
     },
     isActive: {
       type: Boolean,
-      default: true
-    }
+      default: true,
+    },
   },
-  { 
+  {
     timestamps: true,
-    collection: 'users' // Explicitly set collection name
+    collection: "users",
   }
 );
 
 // Hash password before saving
-userSchema.pre('save', async function(next) {
-  // Only hash the password if it has been modified (or is new)
-  if (!this.isModified('password')) return next();
-
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
   try {
-    // Hash password with cost of 12
     const hashedPassword = await bcrypt.hash(this.password, 12);
     this.password = hashedPassword;
     next();
@@ -77,32 +75,26 @@ userSchema.pre('save', async function(next) {
   }
 });
 
-// Instance method to check password
-userSchema.methods.comparePassword = async function(candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Static method to login user
-userSchema.statics.login = async function(identifier, password) {
+userSchema.statics.login = async function (identifier, password) {
   let user;
-  
-  // Check if identifier is email (for teachers) or registration number (for students)
-  if (identifier.includes('@')) {
+  if (identifier.includes("@")) {
     user = await this.findOne({ email: identifier });
   } else {
     user = await this.findOne({ registrationNumber: identifier });
   }
 
-  if (!user) {
-    throw new Error('Invalid credentials');
-  }
+  if (!user) throw new Error("Invalid credentials");
 
   const isPasswordCorrect = await user.comparePassword(password);
-  if (!isPasswordCorrect) {
-    throw new Error('Invalid credentials');
-  }
+  if (!isPasswordCorrect) throw new Error("Invalid credentials");
 
   return user;
 };
 
-module.exports = mongoose.model("User", userSchema);
+// ✅ Avoid model overwrite
+const User = mongoose.models.User || mongoose.model("User", userSchema);
+export default User;

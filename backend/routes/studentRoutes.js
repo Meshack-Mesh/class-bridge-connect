@@ -1,23 +1,21 @@
-const express = require("express");
-const { 
-  getAllStudents, 
-  getStudentPerformance, 
-  searchStudents 
-} = require("../controllers/studentController");
-const { protect } = require("../middleware/authMiddleware");
+import express from "express";
+import authMiddleware from "../middleware/authMiddleware.js";
+import roleMiddleware from "../middleware/roleMiddleware.js";
+import {
+  getAllStudents,
+  getStudentById,
+  getStudentProfile,
+  enrollInClass
+} from "../controllers/studentController.js";
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(protect);
-
-// Get all students with performance data
+// Public or general endpoints (if needed)
 router.get("/", getAllStudents);
+router.get("/:id", getStudentById);
 
-// Search students
-router.get("/search", searchStudents);
+// Must be logged in and be a student
+router.get("/profile", authMiddleware, roleMiddleware("student"), getStudentProfile);
+router.post("/enroll", authMiddleware, roleMiddleware("student"), enrollInClass);
 
-// Get specific student performance
-router.get("/:identifier", getStudentPerformance);
-
-module.exports = router;
+export default router;

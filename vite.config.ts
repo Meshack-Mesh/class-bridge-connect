@@ -8,11 +8,16 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    // 👇 This enables proper SPA routing
+    fs: {
+      strict: false,
+    },
+    middlewareMode: false,
+    historyApiFallback: true,
   },
   plugins: [
     react(),
-    mode === 'development' &&
-    componentTagger(),
+    mode === "development" && componentTagger(),
   ].filter(Boolean),
   resolve: {
     alias: {

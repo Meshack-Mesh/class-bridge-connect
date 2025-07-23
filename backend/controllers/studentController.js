@@ -1,150 +1,68 @@
-const User = require("../models/User");
-const Class = require("../models/Class");
-const Assignment = require("../models/Assignment");
-const Submission = require("../models/Submission");
+import User from '../models/User.js';
+import Class from '../models/Class.js';
 
-// Get all students with their performance data
-const getAllStudents = async (req, res) => {
+/**
+ * Get all students (for teacher/admin views)
+ */
+export const getAllStudents = async (req, res) => {
   try {
-    const students = await User.find({ role: 'student' })
-      .populate({
-        path: 'grades.assignment',
-        model: 'Assignment'
-      })
-      .select('-password')
-      .sort({ username: 1 });
-
-    // Calculate performance metrics for each student
-    const studentsWithPerformance = students.map(student => {
-      const grades = student.grades || [];
-      const totalGrades = grades.length;
-      
-      let averageGrade = 0;
-      if (totalGrades > 0) {
-        const sum = grades.reduce((acc, grade) => acc + (grade.grade || 0), 0);
-        averageGrade = sum / totalGrades;
-      }
-
-      return {
-        ...student._doc,
-        performanceMetrics: {
-          totalAssignments: totalGrades,
-          averageGrade: Math.round(averageGrade * 100) / 100,
-          completionRate: totalGrades > 0 ? 100 : 0 // Can be enhanced with submission tracking
-        }
-      };
-    });
-
-    res.status(200).json(studentsWithPerformance);
+    const students = await User.find({ role: 'student' });
+    res.status(200).json(students);
   } catch (err) {
-    res.status(500).json({ error: err.message || "Server Error" });
+    res.status(500).json({ message: 'Failed to fetch students', error: err.message });
   }
 };
 
-// Get specific student performance by ID or registration number
-const getStudentPerformance = async (req, res) => {
+/**
+ * Get student by ID
+ */
+export const getStudentById = async (req, res) => {
   try {
-    const { identifier } = req.params; // Can be _id or registrationNumber
-    
-    let student;
-    if (identifier.match(/^[0-9a-fA-F]{24}$/)) {
-      // If it's a valid ObjectId
-      student = await User.findById(identifier);
-    } else {
-      // Otherwise search by registration number
-      student = await User.findOne({ registrationNumber: identifier });
-    }
-
+    const student = await User.findById(req.params.id);
     if (!student || student.role !== 'student') {
-      return res.status(404).json({ error: "Student not found" });
+      return res.status(404).json({ message: 'Student not found' });
     }
-
-    // Get detailed performance data
-    const submissions = await Submission.find({ student: student._id })
-      .populate('assignment')
-      .sort({ createdAt: -1 });
-
-    const classes = await Class.find({ students: student._id })
-      .populate('teacher', 'username email');
-
-    const performanceData = {
-      student: {
-        _id: student._id,
-        username: student.username,
-        registrationNumber: student.registrationNumber,
-        createdAt: student.createdAt
-      },
-      classes: classes,
-      submissions: submissions,
-      metrics: {
-        totalSubmissions: submissions.length,
-        gradedSubmissions: submissions.filter(s => s.grade !== undefined).length,
-        averageGrade: submissions.length > 0 ? 
-          submissions.reduce((acc, s) => acc + (s.grade || 0), 0) / submissions.filter(s => s.grade !== undefined).length : 0,
-        pendingGrading: submissions.filter(s => s.grade === undefined).length
-      }
-    };
-
-    res.status(200).json(performanceData);
+    res.status(200).json(student);
   } catch (err) {
-    res.status(500).json({ error: err.message || "Server Error" });
+    res.status(500).json({ message: 'Failed to get student', error: err.message });
   }
 };
 
-// Search students by name or registration number
-const searchStudents = async (req, res) => {
+/**
+ * Get logged-in student profile
+ */
+export const getStudentProfile = async (req, res) => {
   try {
-    const { query } = req.query;
-    
-    if (!query) {
-      return res.status(400).json({ error: "Search query is required" });
+    const student = await User.findById(req.user.id).select('-password');
+    if (!student || student.role !== 'student') {
+      return res.status(403).json({ message: 'Access denied' });
     }
-
-    const searchRegex = new RegExp(query, 'i');
-    
-    const students = await User.find({
-      role: 'student',
-      $or: [
-        { username: searchRegex },
-        { registrationNumber: searchRegex }
-      ]
-    })
-    .populate({
-      path: 'grades.assignment',
-      model: 'Assignment'
-    })
-    .select('-password')
-    .sort({ username: 1 });
-
-    // Add performance metrics
-    const studentsWithPerformance = students.map(student => {
-      const grades = student.grades || [];
-      const totalGrades = grades.length;
-      
-      let averageGrade = 0;
-      if (totalGrades > 0) {
-        const sum = grades.reduce((acc, grade) => acc + (grade.grade || 0), 0);
-        averageGrade = sum / totalGrades;
-      }
-
-      return {
-        ...student._doc,
-        performanceMetrics: {
-          totalAssignments: totalGrades,
-          averageGrade: Math.round(averageGrade * 100) / 100,
-          completionRate: totalGrades > 0 ? 100 : 0
-        }
-      };
-    });
-
-    res.status(200).json(studentsWithPerformance);
+    res.status(200).json(student);
   } catch (err) {
-    res.status(500).json({ error: err.message || "Server Error" });
+    res.status(500).json({ message: 'Failed to get profile', error: err.message });
   }
 };
 
-module.exports = {
-  getAllStudents,
-  getStudentPerformance,
-  searchStudents
+/**
+ * Enroll student in a class
+ */
+export const enrollInClass = async (req, res) => {
+  const { classId } = req.body;
+
+  try {
+    const selectedClass = await Class.findById(classId);
+    if (!selectedClass) {
+      return res.status(404).json({ message: 'Class not found' });
+    }
+
+    // Add student to class if not already enrolled
+    if (!selectedClass.students.includes(req.user.id)) {
+      selectedClass.students.push(req.user.id);
+      await selectedClass.save();
+    }
+
+    res.status(200).json({ message: 'Enrollment successful' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to enroll in class', error: err.message });
+  }
 };

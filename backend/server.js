@@ -1,27 +1,36 @@
-// server.js (ES Modules version)
+
+
 import express from 'express';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+
+import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
+import classRoutes from './routes/classRoutes.js';
+import studentRoutes from './routes/studentRoutes.js';
 
 // Load environment variables
 dotenv.config();
 
-// Import routes
-const authRoutes = require('./routes/authRoutes');
-const classRoutes = require('./routes/classRoutes');
-const studentRoutes = require('./routes/studentRoutes');
-
+// Initialize app
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: ["http://localhost:8080", "http://localhost:5173"], // Add Vite default port
-  credentials: true
+  origin: function (origin, callback) {
+    if (!origin || /^http:\/\/localhost:\d+$/.test(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
 }));
+
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
@@ -31,12 +40,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/students', studentRoutes);
 
-// Routes
-app.use('/api/auth', authRoutes);
-
 // Basic test route
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'EduConnect API is running...',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development'
@@ -52,7 +58,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Handle 404 routes
+// 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
@@ -60,22 +66,22 @@ app.use('*', (req, res) => {
   });
 });
 
-// MongoDB connection with better error handling
-const connectDB = async () => {
+// MongoDB connection and server start
+const startServer = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
 
     console.log(`✅ MongoDB connected: ${conn.connection.host}`);
     console.log(`📊 Database: ${conn.connection.name}`);
-    
-    // Start server only after successful DB connection
+
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
       console.log(`📡 API endpoints available at http://localhost:${PORT}/api`);
     });
+
   } catch (error) {
     console.error('❌ MongoDB connection failed:', error.message);
     process.exit(1);
@@ -83,11 +89,10 @@ const connectDB = async () => {
 };
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (err, promise) => {
+process.on('unhandledRejection', (err) => {
   console.error('Unhandled Promise Rejection:', err.message);
-  // Close server & exit process
   process.exit(1);
 });
 
-// Connect to database
-connectDB();
+// Start the server
+startServer();

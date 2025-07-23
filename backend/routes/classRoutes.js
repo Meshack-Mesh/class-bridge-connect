@@ -1,7 +1,10 @@
 import express from 'express';
+import authMiddleware from '../middleware/authMiddleware.js';
+import roleMiddleware from '../middleware/roleMiddleware.js';
+
 import {
   createClass,
-  getClasses,
+  getAllClasses,
   getClassById,
   updateClass,
   deleteClass
@@ -9,13 +12,13 @@ import {
 
 const router = express.Router();
 
-router.route('/')
-  .post(createClass)
-  .get(getClasses);
+// Public or authenticated viewing
+router.get("/", authMiddleware, getAllClasses);
+router.get("/:id", authMiddleware, getClassById);
 
-router.route('/:id')
-  .get(getClassById)
-  .put(updateClass)
-  .delete(deleteClass);
+// Protected: only teachers can manage classes
+router.post("/", authMiddleware, roleMiddleware("teacher"), createClass);
+router.put("/:id", authMiddleware, roleMiddleware("teacher"), updateClass);
+router.delete("/:id", authMiddleware, roleMiddleware("teacher"), deleteClass);
 
 export default router;

@@ -1,11 +1,30 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const submissionSchema = new mongoose.Schema({
-  assignment: { type: mongoose.Schema.Types.ObjectId, ref: 'Assignment' },
-  student: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  content: String,
-  grade: Number,
-  feedback: String
-}, { timestamps: true });
+const assignmentSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: [true, "Title is required"],
+    },
+    description: {
+      type: String,
+    },
+    dueDate: {
+      type: Date,
+    },
+    class: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Class",
+      required: true,
+    },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+  },
+  { timestamps: true, collection: "assignments" }
+);
 
-export default mongoose.model('Submission', submissionSchema);
+const Assignment = mongoose.models.Assignment || mongoose.model("Assignment", assignmentSchema);
+export default Assignment;
