@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { authAPI } from '@/services/api';
 
 const AuthContext = createContext();
@@ -15,6 +16,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   // Check if user is logged in on app start
   useEffect(() => {
@@ -57,18 +59,17 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       
       const response = await authAPI.login(credentials);
+      setUser(response.user);
       
-      if (response.success) {
-        setUser(response.user);
-        return { success: true, user: response.user };
-      } else {
-        throw new Error(response.error || 'Login failed');
-      }
+      // Navigate based on user role
+      const { role } = response.user;
+      navigate(role === 'teacher' ? '/teacher-dashboard' : '/student-dashboard');
+      
+      return true;
     } catch (error) {
-      const errorMessage = error.response?.data?.error || error.message || 'Login failed';
+      const errorMessage = error.response?.data?.message || 'Login failed';
       setError(errorMessage);
-      console.error('Login error:', error);
-      return { success: false, error: errorMessage };
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -80,18 +81,17 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       
       const response = await authAPI.register(userData);
+      setUser(response.user);
       
-      if (response.success) {
-        setUser(response.user);
-        return { success: true, user: response.user };
-      } else {
-        throw new Error(response.error || 'Registration failed');
-      }
+      // Navigate based on user role
+      const { role } = response.user;
+      navigate(role === 'teacher' ? '/teacher-dashboard' : '/student-dashboard');
+      
+      return true;
     } catch (error) {
-      const errorMessage = error.response?.data?.error || error.message || 'Registration failed';
+      const errorMessage = error.response?.data?.message || 'Registration failed';
       setError(errorMessage);
-      console.error('Registration error:', error);
-      return { success: false, error: errorMessage };
+      throw new Error(errorMessage);
     } finally {
       setLoading(false);
     }
