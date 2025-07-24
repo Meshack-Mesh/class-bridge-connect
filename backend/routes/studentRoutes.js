@@ -10,12 +10,14 @@ import {
 
 const router = express.Router();
 
-// Public or general endpoints (if needed)
+// Public or general endpoints
 router.get("/", getAllStudents);
-router.get("/:id", getStudentById);
 
-// Must be logged in and be a student
+// ✅ Specific routes must come before dynamic routes
 router.get("/profile", authMiddleware, roleMiddleware("student"), getStudentProfile);
 router.post("/enroll", authMiddleware, roleMiddleware("student"), enrollInClass);
+
+// ✅ Dynamic route last to prevent conflicts
+router.get("/:id", getStudentById);
 
 export default router;
