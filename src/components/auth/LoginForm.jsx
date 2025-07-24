@@ -1,16 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
+import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Card,
   CardContent,
@@ -18,44 +11,33 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { User, Lock, GraduationCap, BookOpen } from 'lucide-react';
 
-export const LoginForm = ({ isLoading, onSuccess }) => {
+export const LoginForm = ({ isLoading = false, onSuccess }) => {
   const [formData, setFormData] = useState({
     name: '',
-    identifier: '', // email or registration number for login
     email: '',
-    registrationNumber: '',
     password: '',
+    confirmPassword: '',
     role: 'student',
     action: 'login',
   });
 
   const [errorMessage, setErrorMessage] = useState('');
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login, register } = useAuth();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleRoleChange = (value) => {
-    setFormData({ ...formData, role: value });
-  };
-
   const validateForm = () => {
-    const { name, identifier, email, registrationNumber, password, action } = formData;
+    const { name, password, confirmPassword, email, action } = formData;
 
-    if (!password) return 'Password is required.';
+    if (!name || !password) return 'Full name and password are required.';
+    if (!email) return 'Email is required.';
 
     if (action === 'register') {
-      if (!name) return 'Full name is required.';
-      if (formData.role === 'teacher' && !email) return 'Email is required for teachers.';
-      if (formData.role === 'student' && !registrationNumber)
-        return 'Registration number is required for students.';
-    } else {
-      if (!identifier) return 'Email or Registration Number is required.';
+      if (!confirmPassword) return 'Please confirm your password.';
+      if (password !== confirmPassword) return 'Passwords do not match.';
     }
 
     return '';
@@ -72,218 +54,151 @@ export const LoginForm = ({ isLoading, onSuccess }) => {
     }
 
     try {
-      setLoading(true);
-      
-      if (formData.action === 'login') {
-        const success = await login({
-          identifier: formData.identifier,
-          password: formData.password
-        });
-        
-        if (success) {
-          if (onSuccess) onSuccess();
-        }
+      const endpoint =
+        formData.action === 'login'
+          ? 'http://localhost:5000/api/auth/login'
+          : 'http://localhost:5000/api/auth/register';
+
+      const payload =
+        formData.action === 'login'
+          ? {
+              email: formData.email,
+              password: formData.password,
+              role: formData.role,
+            }
+          : {
+              name: formData.name,
+              email: formData.email,
+              password: formData.password,
+              role: formData.role,
+            };
+
+      const response = await axios.post(endpoint, payload);
+
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        if (onSuccess) onSuccess(response.data.user);
+
+        const { role } = response.data.user;
+        navigate(role === 'teacher' ? '/teacher-dashboard' : '/student-dashboard');
       } else {
-        const success = await register({
-          name: formData.name,
-          email: formData.role === 'teacher' ? formData.email : undefined,
-          registrationNumber: formData.role === 'student' ? formData.registrationNumber : undefined,
-          password: formData.password,
-          role: formData.role
-        });
-        
-        if (success) {
-          if (onSuccess) onSuccess();
-        }
+        setErrorMessage('Authentication failed: Token not received');
       }
     } catch (error) {
       console.error('Auth error:', error);
-      setErrorMessage(error.message || 'An unexpected error occurred');
-    } finally {
-      setLoading(false);
+      setErrorMessage(error.response?.data?.message || 'An unexpected error occurred');
     }
   };
 
   return (
-    <div className="w-full max-w-sm mx-auto">
-      <Card className="backdrop-blur-lg bg-card/95 border border-border/50 shadow-lg">
-        <CardHeader className="text-center space-y-3 pb-4">
-          <div className="mx-auto w-12 h-12 bg-gradient-to-br from-primary to-primary/60 rounded-xl flex items-center justify-center mb-2">
-            {formData.action === 'login' ? (
-              <User className="w-6 h-6 text-primary-foreground" />
-            ) : (
-              <GraduationCap className="w-6 h-6 text-primary-foreground" />
-            )}
-          </div>
-          <CardTitle className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            {formData.action === 'login' ? 'Welcome Back' : 'Join EduConnect'}
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+      <Card className="w-full max-w-md shadow-2xl rounded-2xl border border-gray-200">
+        <CardHeader className="text-center space-y-1">
+          <CardTitle className="text-2xl font-semibold">
+            {formData.action === 'login' ? 'Welcome Back' : 'Create Account'}
           </CardTitle>
-          <CardDescription className="text-sm">
+          <CardDescription className="text-muted-foreground">
             {formData.action === 'login'
               ? 'Sign in to your account'
-              : 'Create your account and start learning'}
+              : 'Register to use EduConnect'}
           </CardDescription>
         </CardHeader>
-        
-        <CardContent className="space-y-4">
+        <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {formData.action === 'register' && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-sm font-medium">Full Name</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                    <Input
-                      id="name"
-                      type="text"
-                      name="name"
-                      placeholder="Enter your full name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      className="pl-10 h-10"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="role" className="text-sm font-medium">Role</Label>
-                  <Select value={formData.role} onValueChange={handleRoleChange}>
-                    <SelectTrigger className="h-10">
-                      <div className="flex items-center gap-2">
-                        {formData.role === 'teacher' ? (
-                          <BookOpen className="w-4 h-4 text-muted-foreground" />
-                        ) : (
-                          <GraduationCap className="w-4 h-4 text-muted-foreground" />
-                        )}
-                        <SelectValue placeholder="Select your role" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="student">
-                        <div className="flex items-center gap-2">
-                          <GraduationCap className="w-4 h-4" />
-                          Student
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="teacher">
-                        <div className="flex items-center gap-2">
-                          <BookOpen className="w-4 h-4" />
-                          Teacher
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {formData.role === 'teacher' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      name="email"
-                      placeholder="Enter your email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      className="h-10"
-                      required
-                    />
-                  </div>
-                )}
-
-                {formData.role === 'student' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="registrationNumber" className="text-sm font-medium">Registration Number</Label>
-                    <Input
-                      id="registrationNumber"
-                      type="text"
-                      name="registrationNumber"
-                      placeholder="Enter your registration number"
-                      value={formData.registrationNumber}
-                      onChange={handleChange}
-                      className="h-10"
-                      required
-                    />
-                  </div>
-                )}
-              </>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="identifier" className="text-sm font-medium">
-                {formData.action === 'login' ? 'Email or Registration Number' : 'Email/Registration'}
-              </Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input
-                  id="identifier"
-                  type="text"
-                  name="identifier"
-                  placeholder={formData.action === 'login' ? 'Enter your email or registration number' : 'Auto-filled based on role'}
-                  value={formData.identifier}
-                  onChange={handleChange}
-                  className="pl-10 h-10"
-                  required={formData.action === 'login'}
-                  disabled={formData.action === 'register'}
-                />
-              </div>
+            <div className="space-y-1">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Enter your full name"
+              />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <div className="space-y-1">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Enter your email"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Enter your password"
+              />
+            </div>
+
+            {formData.action === 'register' && (
+              <div className="space-y-1">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
                 <Input
-                  id="password"
+                  id="confirmPassword"
                   type="password"
-                  name="password"
-                  placeholder="Enter your password"
-                  value={formData.password}
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="pl-10 h-10"
-                  required
+                  placeholder="Re-enter your password"
                 />
               </div>
+            )}
+
+            <div className="space-y-1">
+              <Label htmlFor="role">Role</Label>
+              <select
+                id="role"
+                name="role"
+                value={formData.role}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="student">Student</option>
+                <option value="teacher">Teacher</option>
+              </select>
             </div>
 
             {errorMessage && (
-              <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm text-center p-3 rounded-md">
-                {errorMessage}
-              </div>
+              <div className="text-sm text-red-500 text-center">{errorMessage}</div>
             )}
 
-            <Button 
-              type="submit" 
-              disabled={loading || isLoading} 
-              className="w-full h-10 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-            >
-              {(loading || isLoading) ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Processing...
-                </div>
-              ) : formData.action === 'login' ? (
-                'Sign In'
-              ) : (
-                'Create Account'
-              )}
+            <Button type="submit" disabled={isLoading} className="w-full">
+              {isLoading
+                ? 'Processing...'
+                : formData.action === 'login'
+                ? 'Sign In'
+                : 'Register'}
             </Button>
 
-            <div className="text-center pt-3">
+            <div className="text-center pt-2">
               <button
                 type="button"
                 onClick={() =>
                   setFormData({
-                    ...formData,
+                    name: '',
+                    email: '',
+                    password: '',
+                    confirmPassword: '',
+                    role: 'student',
                     action: formData.action === 'login' ? 'register' : 'login',
                   })
                 }
-                className="text-sm text-primary hover:text-primary/80 hover:underline transition-colors font-medium"
+                className="text-sm text-blue-600 hover:underline"
               >
                 {formData.action === 'login'
-                  ? "Don't have an account? Register here"
-                  : 'Already have an account? Sign in here'}
+                  ? "Don't have an account? Register"
+                  : 'Already have an account? Sign In'}
               </button>
             </div>
           </form>

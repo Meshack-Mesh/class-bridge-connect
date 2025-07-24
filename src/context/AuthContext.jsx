@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { authAPI } from '@/services/api';
 
 const AuthContext = createContext();
@@ -16,7 +15,6 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const navigate = useNavigate();
 
   // Check if user is logged in on app start
   useEffect(() => {
@@ -24,21 +22,18 @@ export const AuthProvider = ({ children }) => {
       try {
         const token = localStorage.getItem('token');
         const savedUser = localStorage.getItem('user');
-        
+
         if (token && savedUser) {
-          // Try to verify the token with the backend
           try {
             const response = await authAPI.verifyToken();
             if (response.success) {
               setUser(response.user);
             } else {
-              // Token is invalid, clear local storage
               localStorage.removeItem('token');
               localStorage.removeItem('user');
             }
           } catch (verifyError) {
             console.error('Token verification failed:', verifyError);
-            // Token is invalid, clear local storage
             localStorage.removeItem('token');
             localStorage.removeItem('user');
           }
@@ -57,23 +52,17 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await authAPI.login(credentials);
       setUser(response.user);
-      
-      // Navigate based on user role
-      const { role } = response.user;
-      if (role === 'teacher') {
-        navigate('/teacher-dashboard');
-      } else {
-        navigate('/student-dashboard');
-      }
-      
-      return true;
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('user', JSON.stringify(response.user));
+
+      return { success: true, role: response.user.role };
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Login failed';
       setError(errorMessage);
-      throw new Error(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
@@ -83,23 +72,17 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await authAPI.register(userData);
       setUser(response.user);
-      
-      // Navigate based on user role
-      const { role } = response.user;
-      if (role === 'teacher') {
-        navigate('/teacher-dashboard');
-      } else {
-        navigate('/student-dashboard');
-      }
-      
-      return true;
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('user', JSON.stringify(response.user));
+
+      return { success: true, role: response.user.role };
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Registration failed';
       setError(errorMessage);
-      throw new Error(errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
@@ -112,6 +95,8 @@ export const AuthProvider = ({ children }) => {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       setError(null);
     }
   };

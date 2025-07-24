@@ -6,14 +6,12 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "::",
+    host: true, // Listen on all interfaces (including localhost and network)
     port: 8080,
-    // 👇 This enables proper SPA routing
     fs: {
       strict: false,
     },
-    middlewareMode: false,
-    historyApiFallback: true,
+    historyApiFallback: true, // SPA fallback for React Router
   },
   plugins: [
     react(),

@@ -128,13 +128,7 @@ const Index = () => {
               Connect teachers and students in a managed virtual classroom environment. 
               Share resources, manage assignments, and track progress together.
             </p>
-            <Button 
-              size="lg" 
-              className="shadow-[var(--shadow-button)]"
-              onClick={() => setUser(mockUser)}
-            >
-              Get Started Today
-            </Button>
+
           </div>
 
           {/* Features Grid */}

@@ -10,22 +10,10 @@ const userSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: function () {
-        return this.role === "teacher";
-      },
+      required: [true, "Email is required"],
       unique: true,
-      sparse: true,
       lowercase: true,
       match: [/\S+@\S+\.\S+/, "Email is invalid"],
-    },
-    registrationNumber: {
-      type: String,
-      required: function () {
-        return this.role === "student";
-      },
-      unique: true,
-      sparse: true,
-      trim: true,
     },
     password: {
       type: String,
@@ -63,7 +51,7 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Hash password before saving
+// ✅ Pre-save hook to hash password
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
   try {
@@ -75,18 +63,14 @@ userSchema.pre("save", async function (next) {
   }
 });
 
+// ✅ Compare password method
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-userSchema.statics.login = async function (identifier, password) {
-  let user;
-  if (identifier.includes("@")) {
-    user = await this.findOne({ email: identifier });
-  } else {
-    user = await this.findOne({ registrationNumber: identifier });
-  }
-
+// ✅ Login method using email and password
+userSchema.statics.login = async function (email, password) {
+  const user = await this.findOne({ email });
   if (!user) throw new Error("Invalid credentials");
 
   const isPasswordCorrect = await user.comparePassword(password);
@@ -95,6 +79,6 @@ userSchema.statics.login = async function (identifier, password) {
   return user;
 };
 
-// ✅ Avoid model overwrite
+// ✅ Prevent model overwrite
 const User = mongoose.models.User || mongoose.model("User", userSchema);
 export default User;
