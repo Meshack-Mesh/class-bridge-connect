@@ -21,7 +21,8 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || /^http:\/\/localhost:\d+$/.test(origin)) {
+    // Allow localhost:<any port> and undefined (e.g., Postman or server-side scripts)
+    if (!origin || /^http:\/\/localhost:\d+$/.test(origin) || origin === undefined) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
