@@ -1,4 +1,4 @@
-
+// server.js
 
 import express from 'express';
 import dotenv from 'dotenv';
@@ -41,7 +41,6 @@ app.use(cors({
   },
   credentials: true,
 }));
-
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
