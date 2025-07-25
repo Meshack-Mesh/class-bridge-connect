@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { authAPI } from '@/services/api';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +13,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-export const LoginForm = ({ isLoading = false, onSuccess }) => {
+export const LoginForm = ({ isLoading = false, onSuccess, onSubmit }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -23,7 +24,9 @@ export const LoginForm = ({ isLoading = false, onSuccess }) => {
   });
 
   const [errorMessage, setErrorMessage] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login, register } = useAuth();
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -36,6 +39,7 @@ export const LoginForm = ({ isLoading = false, onSuccess }) => {
       if (!name) return 'Full name is required.';
       if (!confirmPassword) return 'Please confirm your password.';
       if (password !== confirmPassword) return 'Passwords do not match.';
+      if (password.length < 6) return 'Password must be at least 6 characters long.';
     }
     return '';
   };
@@ -43,48 +47,48 @@ export const LoginForm = ({ isLoading = false, onSuccess }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
+    setLoading(true);
 
     const validationError = validateForm();
     if (validationError) {
       setErrorMessage(validationError);
+      setLoading(false);
       return;
     }
 
     try {
-      const endpoint =
-        formData.action === 'login'
-          ? 'http://localhost:5000/api/auth/login'
-          : 'http://localhost:5000/api/auth/register';
+      let result;
+      
+      if (formData.action === 'login') {
+        result = await login({
+          email: formData.email,
+          password: formData.password,
+          role: formData.role,
+        });
+      } else {
+        result = await register({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          role: formData.role,
+        });
+      }
 
-      const payload =
-        formData.action === 'login'
-          ? {
-              email: formData.email,
-              password: formData.password,
-              role: formData.role,
-            }
-          : {
-              name: formData.name,
-              email: formData.email,
-              password: formData.password,
-              role: formData.role,
-            };
-
-      const response = await axios.post(endpoint, payload);
-
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        if (onSuccess) onSuccess(response.data.user);
-
-        const { role } = response.data.user;
+      if (result.success) {
+        if (onSuccess) onSuccess(result.user || result);
+        if (onSubmit) onSubmit(formData);
+        
+        // Navigate based on role
+        const role = result.role || result.user?.role;
         navigate(role === 'teacher' ? '/teacher-dashboard' : '/student-dashboard');
       } else {
-        setErrorMessage('Authentication failed: Token not received');
+        setErrorMessage(result.error || 'Authentication failed');
       }
     } catch (error) {
       console.error('Auth error:', error);
-      setErrorMessage(error.response?.data?.message || 'An unexpected error occurred');
+      setErrorMessage(error.message || 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -172,8 +176,8 @@ export const LoginForm = ({ isLoading = false, onSuccess }) => {
                 </div>
               )}
 
-              <Button type="submit" disabled={isLoading} className="w-full mt-2">
-                {isLoading
+              <Button type="submit" disabled={isLoading || loading} className="w-full mt-2">
+                {isLoading || loading
                   ? 'Processing...'
                   : formData.action === 'login'
                   ? 'Sign In'

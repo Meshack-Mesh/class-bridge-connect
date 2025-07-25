@@ -45,60 +45,31 @@ export const authAPI = {
   login: async (credentials) => {
     console.log('Login attempt:', credentials);
     
-    const loginData = {
+    const response = await api.post('/auth/login', {
+      email: credentials.email,
       password: credentials.password
-    };
-
-    // Add email for teachers or registrationNumber for students
-    if (credentials.email) {
-      loginData.email = credentials.email;
-    } else if (credentials.registrationNumber) {
-      loginData.registrationNumber = credentials.registrationNumber;
-    }
-
-    const response = await api.post('/auth/login', loginData);
-    const userData = response.data;
+      role: credentials.role
+    });
     
-    // Store token and user data
-    if (userData.success && userData.token) {
-      localStorage.setItem('token', userData.token);
-      localStorage.setItem('user', JSON.stringify(userData.user));
-    }
-    
-    return userData;
+    return response.data;
   },
 
   register: async (userData) => {
     console.log('Registration attempt:', userData);
     
-    const registerData = {
-      username: userData.name, // Map 'name' to 'username' for backend
+    const response = await api.post('/auth/register', {
+      name: userData.name,
+      email: userData.email,
       password: userData.password,
       role: userData.role
-    };
-
-    // Add email for teachers or registrationNumber for students
-    if (userData.role === 'teacher') {
-      registerData.email = userData.email;
-    } else if (userData.role === 'student') {
-      registerData.registrationNumber = userData.registrationNumber;
-    }
-
-    const response = await api.post('/auth/register', registerData);
-    const newUser = response.data;
+    });
     
-    // Store token and user data
-    if (newUser.success && newUser.token) {
-      localStorage.setItem('token', newUser.token);
-      localStorage.setItem('user', JSON.stringify(newUser.user));
-    }
-    
-    return newUser;
+    return response.data;
   },
 
   logout: async () => {
     try {
-      await api.get('/auth/logout');
+      await api.post('/auth/logout');
     } catch (error) {
       console.error('Logout error:', error);
     } finally {

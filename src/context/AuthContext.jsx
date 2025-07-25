@@ -53,13 +53,21 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      const response = await authAPI.login(credentials);
-      setUser(response.user);
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
+      const result = await authAPI.login(credentials);
+      
+      if (result.success) {
+        setUser(result.user);
+        localStorage.setItem('token', result.token);
+        localStorage.setItem('user', JSON.stringify(result.user));
+        return { success: true, role: result.user.role, user: result.user };
+      } else {
+        const errorMessage = result.message || 'Login failed';
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
 
-      return { success: true, role: response.user.role };
     } catch (error) {
+      console.error('Login error:', error);
       const errorMessage = error.response?.data?.message || 'Login failed';
       setError(errorMessage);
       return { success: false, error: errorMessage };
@@ -73,13 +81,21 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
       setError(null);
 
-      const response = await authAPI.register(userData);
-      setUser(response.user);
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
+      const result = await authAPI.register(userData);
+      
+      if (result.success) {
+        setUser(result.user);
+        localStorage.setItem('token', result.token);
+        localStorage.setItem('user', JSON.stringify(result.user));
+        return { success: true, role: result.user.role, user: result.user };
+      } else {
+        const errorMessage = result.message || 'Registration failed';
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
 
-      return { success: true, role: response.user.role };
     } catch (error) {
+      console.error('Registration error:', error);
       const errorMessage = error.response?.data?.message || 'Registration failed';
       setError(errorMessage);
       return { success: false, error: errorMessage };
