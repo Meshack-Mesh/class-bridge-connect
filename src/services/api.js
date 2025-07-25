@@ -47,7 +47,7 @@ export const authAPI = {
     
     const response = await api.post('/auth/login', {
       email: credentials.email,
-      password: credentials.password
+      password: credentials.password,
       role: credentials.role
     });
     
